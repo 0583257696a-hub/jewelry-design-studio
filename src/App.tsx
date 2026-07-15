@@ -105,6 +105,27 @@ export default function App() {
   // Layout / UX chrome state
   const [mobileSheetOpen, setMobileSheetOpen] = useState<boolean>(false);
   const [validationOpen, setValidationOpen] = useState<boolean>(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Lock background scroll and allow Escape to close while the mobile sheet is open
+  useEffect(() => {
+    if (!mobileSheetOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileSheetOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileSheetOpen]);
+
+  // Dismiss any pending delete confirmation when the user navigates away from the library tab
+  useEffect(() => {
+    if (activeTab !== "library") setDeleteConfirmId(null);
+  }, [activeTab]);
 
   // --- 2. Load Initial Design on Mount ---
   useEffect(() => {
@@ -732,6 +753,7 @@ export default function App() {
       await designRepository.delete(id);
       const summaries = await designRepository.list();
       setSavedDesigns(summaries);
+      setDeleteConfirmId(null);
       showHUD("העיצוב נמחק מהארכיון", "info");
     } catch (e) {
       console.error(e);
@@ -1519,29 +1541,50 @@ export default function App() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-2.5">
-                  {savedDesigns.map((d) => (
-                    <div
-                      key={d.id}
-                      className={`p-3 bg-surface border rounded-xl text-right flex items-center justify-between shadow-xs transition-all ${
-                        d.id === design.id ? "border-primary/60 ring-1 ring-primary/30" : "border-border-subtle hover:border-border"
-                      }`}
-                    >
-                      <div className="flex-1 cursor-pointer" onClick={() => handleLoadDesign(d.id)}>
-                        <span className="text-xs font-bold text-ink-primary block mb-0.5">{d.name}</span>
-                        <span className="text-3xs text-ink-muted block leading-relaxed font-mono">
-                          {d.metalName} | {d.totalPrice.toLocaleString()} ₪ | גרסה {d.version}
-                        </span>
-                      </div>
-
-                      <button
-                        onClick={() => handleDeleteDesign(d.id)}
-                        className="p-2 hover:bg-danger-bg text-ink-muted hover:text-danger rounded-lg transition-colors cursor-pointer"
-                        aria-label="מחק עיצוב"
+                  {savedDesigns.map((d) =>
+                    deleteConfirmId === d.id ? (
+                      <div
+                        key={d.id}
+                        className="p-3 bg-danger-bg border border-danger/40 rounded-xl flex items-center justify-between gap-2"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
+                        <span className="text-2xs text-danger font-medium flex-1">למחוק לצמיתות את &quot;{d.name}&quot;?</span>
+                        <button
+                          onClick={() => handleDeleteDesign(d.id)}
+                          className="px-3 py-1.5 bg-danger hover:bg-danger/90 text-white rounded-lg text-2xs font-bold cursor-pointer whitespace-nowrap"
+                        >
+                          מחק
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(null)}
+                          className="px-3 py-1.5 bg-surface hover:bg-surface-hover text-ink-secondary border border-border-subtle rounded-lg text-2xs font-medium cursor-pointer whitespace-nowrap"
+                        >
+                          ביטול
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        key={d.id}
+                        className={`p-3 bg-surface border rounded-xl text-right flex items-center justify-between shadow-xs transition-all ${
+                          d.id === design.id ? "border-primary/60 ring-1 ring-primary/30" : "border-border-subtle hover:border-border"
+                        }`}
+                      >
+                        <div className="flex-1 cursor-pointer" onClick={() => handleLoadDesign(d.id)}>
+                          <span className="text-xs font-bold text-ink-primary block mb-0.5">{d.name}</span>
+                          <span className="text-3xs text-ink-muted block leading-relaxed font-mono">
+                            {d.metalName} | {d.totalPrice.toLocaleString()} ₪ | גרסה {d.version}
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => setDeleteConfirmId(d.id)}
+                          className="p-2 hover:bg-danger-bg text-ink-muted hover:text-danger rounded-lg transition-colors cursor-pointer"
+                          aria-label="מחק עיצוב"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </motion.div>
@@ -1708,6 +1751,9 @@ export default function App() {
                 className="lg:hidden fixed inset-0 bg-black/45 z-40"
               />
               <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-label="התאמה אישית"
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}

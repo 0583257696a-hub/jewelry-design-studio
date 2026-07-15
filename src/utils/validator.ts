@@ -45,7 +45,7 @@ export function validateDesign(design: JewelryDesign): ValidationResult[] {
       results.push({
         id: "err_center_stone_huge",
         level: "warning",
-        messageHebrew: `האבן המרכזית (${centerStone.width} מ"מ) גדולה משמעותית מרוחב הטבעת (${measurements.width} מ"m). ייתכן חוסר יציבות מבנית.`,
+        messageHebrew: `האבן המרכזית (${centerStone.width} מ"מ) גדולה משמעותית מרוחב הטבעת (${measurements.width} מ"מ). ייתכן חוסר יציבות מבנית.`,
         affectedObjectId: centerStone.id,
       });
     }

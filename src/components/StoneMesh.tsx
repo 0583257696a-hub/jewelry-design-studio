@@ -332,7 +332,7 @@ export const StoneMesh: React.FC<StoneMeshProps> = ({
 
     if (settingType === "four_prong" || settingType === "six_prong") {
       return (
-        <group>
+        <group rotation={[0, rotY, 0]}>
           {/* A. Dynamic Prongs following actual perimeter, featuring triangular V-prongs for tips */}
           {prongs.map((pr, idx) => {
             if (pr.isTipProtection) {

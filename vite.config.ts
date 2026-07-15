@@ -18,5 +18,17 @@ export default defineConfig(() => {
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Split the heavy 3D stack into its own cacheable chunk so it doesn't
+          // get invalidated by routine app-code edits.
+          manualChunks: {
+            three: ['three', '@react-three/fiber', '@react-three/drei'],
+            vendor: ['react', 'react-dom', 'motion', 'lucide-react'],
+          },
+        },
+      },
+    },
   };
 });
