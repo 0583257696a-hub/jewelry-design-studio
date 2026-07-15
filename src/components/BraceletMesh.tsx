@@ -54,39 +54,39 @@ export const BraceletMesh: React.FC<BraceletMeshProps> = ({
     return base;
   }, [metal, finish]);
 
+  // Laid out flat in a straight line for design work — a bracelet/necklace
+  // chain only curves into a circle once it's actually worn.
+  const lastStone = stones[stones.length - 1];
+  const claspX = lastStone ? lastStone.position[0] + width * 1.6 : 0;
+
   return (
     <group>
-      {/* 1. Clasp / Lock Box at the bottom */}
-      {/* We place the clasp box between the first and last links */}
+      {/* 1. Clasp / Lock Box at one end of the line */}
       {stones.length > 1 && (
-        <group
-          position={[0, -26, 0]} // positioned in the bottom opening
-          rotation={[0, 0, 0]}
-        >
+        <group position={[claspX, 0, 0]} rotation={[0, 0, 0]}>
           {/* Main lock box */}
           <mesh castShadow receiveShadow>
             <boxGeometry args={[width * 1.3, thickness * 1.1, width * 2.2]} />
             <meshPhysicalMaterial {...metalMaterialProps} />
           </mesh>
           {/* Small safety latch */}
-          <mesh position={[width * 0.6, 0, 0]}>
-            <boxGeometry args={[0.2, thickness * 0.6, width * 0.8]} />
+          <mesh position={[0, 0, width * 1.3]}>
+            <boxGeometry args={[width * 0.8, thickness * 0.6, 0.2]} />
             <meshPhysicalMaterial {...metalMaterialProps} />
           </mesh>
         </group>
       )}
 
-      {/* 2. Render each link + stone */}
+      {/* 2. Render each link + stone along the straight line */}
       {stones.map((stone, idx) => {
         const isSelected = selectedStoneId === stone.id;
-        const angle = Math.atan2(stone.position[1], stone.position[0]);
 
-        // Shift the link box base slightly inward so the stone and its prongs sit on top of it, beautifully visible!
+        // Shift the link box base slightly below so the stone and its prongs sit on top of it, beautifully visible!
         const baseThickness = thickness * 0.35;
         const inwardShift = 0.65;
         const basePosition: [number, number, number] = [
-          stone.position[0] - Math.cos(angle) * inwardShift,
-          stone.position[1] - Math.sin(angle) * inwardShift,
+          stone.position[0],
+          stone.position[1] - inwardShift,
           stone.position[2],
         ];
 
@@ -94,18 +94,13 @@ export const BraceletMesh: React.FC<BraceletMeshProps> = ({
         return (
           <group key={stone.id || idx}>
             {/* Metal Link Box Geometry */}
-            <mesh
-              position={basePosition}
-              rotation={stone.rotation}
-              castShadow
-              receiveShadow
-            >
+            <mesh position={basePosition} castShadow receiveShadow>
               {/* Box casing with a hollow pocket for the stone */}
               <boxGeometry
                 args={[
-                  width * 1.05,       // link width
+                  width * 1.05,       // link width along the line
                   baseThickness,     // thinner base link thickness
-                  width * 1.05        // link length along circle
+                  width * 1.05        // link length across the band
                 ]}
               />
               <meshPhysicalMaterial {...metalMaterialProps} />
@@ -119,7 +114,7 @@ export const BraceletMesh: React.FC<BraceletMeshProps> = ({
                   (stone.position[1] + stones[idx + 1].position[1]) / 2,
                   (stone.position[2] + stones[idx + 1].position[2]) / 2,
                 ]}
-                rotation={stone.rotation}
+                rotation={[Math.PI / 2, 0, 0]}
               >
                 <cylinderGeometry args={[0.25, 0.25, width * 0.9, 8]} />
                 <meshPhysicalMaterial {...metalMaterialProps} {...(finish === "matte" ? { roughness: 0.8 } : {})} />

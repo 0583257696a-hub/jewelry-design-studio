@@ -99,6 +99,8 @@ export interface JewelryDesign {
   engravings: EngravingInstance[];
   calculations: CalculationSnapshot;
   validation: ValidationResult[];
+  /** The word spelled by ring_custom_letters / pendant_custom_letters designs. */
+  customText?: string;
 }
 
 export interface JewelryTemplate {

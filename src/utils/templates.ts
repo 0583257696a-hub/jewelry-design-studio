@@ -430,24 +430,26 @@ export const TEMPLATE_REGISTRY: JewelryTemplate[] = [
     allowedWidthRange: [2.0, 6.0],
     allowedThicknessRange: [1.8, 4.0],
     defaultStones: Array.from({ length: 52 }).map((_, i) => {
-      // Create stones spaced along the 17cm curved presentation
+      // Laid out flat in a straight line, as a jeweler would present it on the
+      // bench for design work — it only curves into a circle once worn.
       const totalStones = 52;
-      const angle = (i / totalStones) * Math.PI * 1.5 - Math.PI * 0.75; // Curved horseshoe presentation
-      const radius = 28; // Fits 55mm diameter approx
+      const stoneSize = 2.2;
+      const spacing = stoneSize + 0.5;
+      const startX = -((totalStones - 1) * spacing) / 2;
       return {
         id: `tennis_stone_${i}`,
         family: "natural_diamond" as const,
         familyHebrew: "יהלום טבעי",
         type: "G VS",
         shape: "round" as const,
-        width: 2.2,
-        length: 2.2,
+        width: stoneSize,
+        length: stoneSize,
         depth: 1.3,
         carat: 0.04,
         color: "#ffffff",
         settingType: "four_prong" as const,
-        position: [Math.cos(angle) * radius, Math.sin(angle) * radius, 0] as [number, number, number],
-        rotation: [0, 0, angle - Math.PI/2] as [number, number, number],
+        position: [startX + i * spacing, 0, 0] as [number, number, number],
+        rotation: [0, 0, 0] as [number, number, number],
       };
     }),
     manufacturingWarnings: [
@@ -639,17 +641,18 @@ export const TEMPLATE_REGISTRY: JewelryTemplate[] = [
     allowedWidthRange: [1.5, 4.5],
     allowedThicknessRange: [1.2, 4.0],
     defaultStones: [
-      // Graduated diamond array along the front arc
+      // Graduated diamond array, laid out flat in a straight line as a jeweler
+      // would present a riviera necklace on the bench for design work.
       ...Array.from({ length: 15 }).map((_, i) => {
         const totalStones = 15;
-        const angle = -Math.PI / 4 + (i / (totalStones - 1)) * Math.PI / 2;
-        const radius = 35; // hangs directly along the bottom of the chain
         const distFromCenter = Math.abs(i - (totalStones - 1) / 2);
-        
+
         // Center is 4.8mm, tapering down to 2.8mm
         const stoneSize = 4.8 - distFromCenter * 0.28;
         const carat = parseFloat(((stoneSize * stoneSize * 0.14) / 10).toFixed(3));
-        
+        const spacing = 5.4;
+        const startX = -((totalStones - 1) * spacing) / 2;
+
         return {
           id: `riviera_stone_${i}`,
           family: "natural_diamond" as const,
@@ -662,9 +665,8 @@ export const TEMPLATE_REGISTRY: JewelryTemplate[] = [
           carat: carat,
           color: "#ffffff",
           settingType: "four_prong" as const,
-          // Position relative to the center Y which is offset
-          position: [Math.sin(angle) * radius, 35 - Math.cos(angle) * radius + 2.0, 0] as [number, number, number],
-          rotation: [0, 0, -angle] as [number, number, number],
+          position: [startX + i * spacing, 0, 0] as [number, number, number],
+          rotation: [0, 0, 0] as [number, number, number],
         };
       })
     ],

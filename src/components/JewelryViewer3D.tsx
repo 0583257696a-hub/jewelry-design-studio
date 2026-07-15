@@ -3,13 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, Suspense, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import React, { useRef, Suspense, useState, useEffect } from "react";
+import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, Text, Environment } from "@react-three/drei";
 import { JewelryDesign, StoneInstance } from "../types";
 import { RingShankMesh } from "./RingShankMesh";
 import { StoneMesh } from "./StoneMesh";
 import { BraceletMesh } from "./BraceletMesh";
+import { LetterCharmMesh } from "./LetterCharmMesh";
+import { generateWordLetterSegments } from "../utils/lettering";
 
 interface JewelryViewer3DProps {
   design: JewelryDesign;
@@ -29,9 +31,14 @@ const ShowroomScene: React.FC<{
   const { category, measurements, metal, finish, stones, engravings } = design;
   const { innerDiameter, thickness, width } = measurements;
 
+  // Graduated multi-stone chains (tennis bracelets, riviera-style necklaces) are
+  // laid out flat in a straight line for design work, same as a jeweler would
+  // present them on the bench — they only curve into a circle once worn.
+  const isFlatLineChain = category === "tennis_bracelet" || design.templateId === "necklace_riviera";
+
   // Position of ground shadow based on ring radius, pendant offset, or bracelet size
   let shadowY = -innerDiameter / 2 - thickness - 0.2;
-  if (category === "tennis_bracelet") {
+  if (isFlatLineChain) {
     shadowY = -3.0;
   } else if (category === "pendant" || category === "necklace") {
     shadowY = -8.5; // Pendant hangs down to ~Y=-5, so -8.5 floating shadow looks incredibly premium!
@@ -40,8 +47,8 @@ const ShowroomScene: React.FC<{
   return (
     <group position={[0, 0, 0]}>
       {/* 1. Base Jewelry Geometry */}
-      {category === "tennis_bracelet" ? (
-        // Tennis Bracelet Mode
+      {isFlatLineChain ? (
+        // Flat straight-line chain mode (tennis bracelets, riviera necklaces)
         <BraceletMesh
           measurements={measurements}
           metal={metal}
@@ -79,30 +86,14 @@ const ShowroomScene: React.FC<{
             />
           </mesh>
 
-          {/* Solid Gold Backing Plates for Pendants */}
+          {/* Solid gold lettering — the metal itself takes the shape of the word,
+              rather than sitting on a flat backing plate */}
           {design.templateId === "pendant_custom_letters" && (
-            <group position={[0, -2.5, -0.2]}>
-              {/* Polished nameplate base bar */}
-              <mesh castShadow receiveShadow>
-                <boxGeometry args={[17.0, 4.5, 0.6]} />
-                <meshPhysicalMaterial
-                  color={metal.color}
-                  metalness={Math.min(metal.metalness, 0.88)}
-                  roughness={metal.roughness}
-                  clearcoat={1.0}
-                />
-              </mesh>
-              {/* Elegant supporting border rim */}
-              <mesh position={[0, 0, 0.3]} castShadow>
-                <boxGeometry args={[17.2, 4.7, 0.1]} />
-                <meshPhysicalMaterial
-                  color={metal.color}
-                  metalness={Math.min(metal.metalness, 0.88)}
-                  roughness={metal.roughness}
-                  clearcoat={1.0}
-                />
-              </mesh>
-            </group>
+            <LetterCharmMesh
+              segments={generateWordLetterSegments(design.customText || "MOM", "pendant", innerDiameter, thickness)}
+              metal={metal}
+              finish={finish}
+            />
           )}
 
           {design.templateId === "pendant_heart" && (
@@ -142,17 +133,14 @@ const ShowroomScene: React.FC<{
             showDimensions={showDimensions}
           />
 
-          {/* Custom Letter Signet Plate for custom text rings */}
+          {/* Solid gold lettering — the ring shank flows directly into the shape
+              of the word, rather than a flat plate with stones set on top */}
           {design.templateId === "ring_custom_letters" && (
-            <mesh position={[0, innerDiameter / 2 + thickness + 0.1, 0]} castShadow receiveShadow>
-              <boxGeometry args={[17.0, 0.5, 4.5]} />
-              <meshPhysicalMaterial
-                color={metal.color}
-                metalness={Math.min(metal.metalness, 0.88)}
-                roughness={metal.roughness}
-                clearcoat={1.0}
-              />
-            </mesh>
+            <LetterCharmMesh
+              segments={generateWordLetterSegments(design.customText || "MOM", "ring", innerDiameter, thickness)}
+              metal={metal}
+              finish={finish}
+            />
           )}
 
           {/* Render all stones assigned to the ring or bangle */}
@@ -203,6 +191,23 @@ const ShowroomScene: React.FC<{
   );
 };
 
+// react-three-fiber only applies the <Canvas camera> prop once, at creation —
+// changing it on later renders (e.g. clicking a view preset) does not move the
+// live camera. This rig reactively re-aims it whenever the target position changes.
+const CameraRig: React.FC<{ position: [number, number, number]; controlsRef: React.RefObject<any> }> = ({
+  position,
+  controlsRef,
+}) => {
+  const { camera } = useThree();
+  useEffect(() => {
+    camera.position.set(position[0], position[1], position[2]);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+    controlsRef.current?.update();
+  }, [position[0], position[1], position[2], camera, controlsRef]);
+  return null;
+};
+
 export const JewelryViewer3D: React.FC<JewelryViewer3DProps> = ({
   design,
   selectedStoneId,
@@ -213,47 +218,51 @@ export const JewelryViewer3D: React.FC<JewelryViewer3DProps> = ({
   const controlsRef = useRef<any>(null);
   const [lowPerf, setLowPerf] = useState(false);
 
-  // Map view preset to camera coordinates
-  const getCameraPosition = (): [number, number, number] => {
+  // Sized to fit the actual piece so nothing crops at the frame edges,
+  // regardless of category or size.
+  const getBoundingRadius = (): number => {
     const cat = design.category;
-    if (cat === "tennis_bracelet" || cat === "bangle" || cat === "pendant" || cat === "necklace") {
-      // Much larger bounding sphere for bracelets, bangles, pendants, and necklaces
-      const scaleFactor = (cat === "pendant" || cat === "necklace") ? 68 : 55;
-      switch (viewPreset) {
-        case "front":
-          return [0, 0, scaleFactor];
-        case "back":
-          return [0, 0, -scaleFactor];
-        case "top":
-          return [0, scaleFactor, 0];
-        case "side":
-          return [scaleFactor, 0, 0];
-        case "perspective":
-        default:
-          return [scaleFactor * 0.7, scaleFactor * 0.5, scaleFactor * 0.7];
-      }
+    if (cat === "bangle") {
+      // Rigid circular band, same fitting logic as a (large) ring.
+      const { innerDiameter, thickness, width } = design.measurements;
+      return innerDiameter / 2 + thickness + width / 2 + 4;
+    } else if (cat === "tennis_bracelet" || cat === "necklace" || cat === "pendant") {
+      // These are laid out flat for design work, so frame to the actual span
+      // of the stones rather than a fixed circular radius.
+      const xs = design.stones.map((s) => s.position[0]);
+      const ys = design.stones.map((s) => s.position[1]);
+      const spanX = xs.length ? Math.max(...xs) - Math.min(...xs) : 0;
+      const spanY = ys.length ? Math.max(...ys) - Math.min(...ys) : 0;
+      const stoneHalfSpan = Math.max(spanX, spanY) / 2 + 6;
+      // Pendants/necklaces also show a hanging neckwire loop above the stones.
+      const minRadius = cat === "tennis_bracelet" ? 20 : 40;
+      return Math.max(stoneHalfSpan, minRadius);
     } else {
       // Macro view for rings, sized to the current measurements so the whole
       // piece stays comfortably in frame instead of cropping at ring extremes.
       const { innerDiameter, thickness, width } = design.measurements;
-      const boundingRadius = innerDiameter / 2 + thickness + width / 2 + 1.5;
-      const halfFovRad = (45 * Math.PI) / 180 / 2;
-      const fitDistance = (boundingRadius / Math.tan(halfFovRad)) * 1.2;
+      return innerDiameter / 2 + thickness + width / 2 + 2.5;
+    }
+  };
 
-      switch (viewPreset) {
-        case "front":
-          return [0, 0, fitDistance];
-        case "back":
-          return [0, 0, -fitDistance];
-        case "top":
-          return [0, fitDistance, 0];
-        case "side":
-          return [fitDistance, 0, 0];
-        case "perspective":
-        default: {
-          const p = fitDistance / Math.sqrt(3);
-          return [p, p * 0.68, p];
-        }
+  const boundingRadius = getBoundingRadius();
+  const halfFovRad = (45 * Math.PI) / 180 / 2;
+  const fitDistance = (boundingRadius / Math.tan(halfFovRad)) * 1.2;
+
+  const getCameraPosition = (): [number, number, number] => {
+    switch (viewPreset) {
+      case "front":
+        return [0, 0, fitDistance];
+      case "back":
+        return [0, 0, -fitDistance];
+      case "top":
+        return [0, fitDistance, 0];
+      case "side":
+        return [fitDistance, 0, 0];
+      case "perspective":
+      default: {
+        const p = fitDistance / Math.sqrt(3);
+        return [p, p * 0.68, p];
       }
     }
   };
@@ -346,13 +355,15 @@ export const JewelryViewer3D: React.FC<JewelryViewer3DProps> = ({
             showDimensions={showDimensions}
           />
 
+          <CameraRig position={cameraPos} controlsRef={controlsRef} />
+
           {/* Camera Orbit Controls */}
           <OrbitControls
             ref={controlsRef}
             enableDamping
             dampingFactor={0.05}
-            minDistance={design.category === "tennis_bracelet" ? 20 : 5}
-            maxDistance={design.category === "tennis_bracelet" ? 150 : 40}
+            minDistance={fitDistance * 0.15}
+            maxDistance={fitDistance * 2.5}
             makeDefault
           />
         </Canvas>

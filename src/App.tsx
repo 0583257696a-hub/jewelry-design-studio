@@ -189,6 +189,7 @@ export default function App() {
           const first = await designRepository.get(summaries[0].id);
           if (first) {
             setDesign(first);
+            setCustomLettersText(first.customText || "MOM");
           }
         }
       } catch (e) {
@@ -333,6 +334,7 @@ export default function App() {
     commitDesignState({
       ...design,
       stones: newStones,
+      customText: sanitized,
     });
   };
 
@@ -737,6 +739,7 @@ export default function App() {
       const found = await designRepository.get(id);
       if (found) {
         setDesign(found);
+        setCustomLettersText(found.customText || "MOM");
         setHistoryPast([]);
         setHistoryFuture([]);
         setSelectedStoneId(null);
@@ -806,6 +809,7 @@ export default function App() {
     newDesign.validation = validateDesign(newDesign);
 
     if (templateId === "ring_custom_letters" || templateId === "pendant_custom_letters") {
+      newDesign.customText = "MOM";
       setCustomLettersText("MOM");
     }
 
@@ -1194,10 +1198,7 @@ export default function App() {
                             : "bg-surface hover:bg-surface-hover border-border-subtle"
                         }`}
                       >
-                        <div>
-                          <span className="text-sm font-bold text-ink-primary block mb-0.5">{t.displayNameHebrew}</span>
-                          <span className="text-3xs text-ink-muted font-mono">ID: {t.id}</span>
-                        </div>
+                        <span className="text-sm font-bold text-ink-primary">{t.displayNameHebrew}</span>
                         <ChevronRight className={`w-4 h-4 ${design.templateId === t.id ? "text-primary-dark" : "text-ink-muted"}`} />
                       </button>
                     ))}
