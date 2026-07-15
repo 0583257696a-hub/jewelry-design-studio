@@ -1,0 +1,8 @@
+{
+  "name": "ES LEVIEV Jewelry Design Studio 360",
+  "description": "An advanced browser-based 3D jewelry customization and design studio with Hebrew interface, CAD-grade parametric generation, physical weight/cost calculations, and AI design assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
